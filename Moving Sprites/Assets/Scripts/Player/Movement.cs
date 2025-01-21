@@ -31,7 +31,10 @@ public class Movement : MonoBehaviour
     // public Vector2 facingBoxSize;
     // public float faceCastDistance;
 
+    [Header ("Identifiers")]
     public LayerMask groundLayer;
+    public LayerMask moveableLayer;
+    public LayerMask wallLayer;
 
     private Vector2 horizontalBoxSize;
     private Vector2 verticalBoxSize;
@@ -57,18 +60,25 @@ public class Movement : MonoBehaviour
     void Update()
     {
         horizontalInput = Input.GetAxis("Horizontal");
+        // horizontalInput = (float) Math.Sign(horizontalInput) * Math.Max(Math.Abs(horizontalInput), 1f);
+
         verticalInput = Input.GetAxis("Vertical");
-        isCrouching = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
         FlipSprite();
         isGrounded = checkGround();
         isHittingWall = checkHittingWall();
-        
-        if (isCrouching){
+        if (isCrouching)
             isHittingHead = checkHittingHead();
-            if (isHittingHead) isCrouching = true;
+        else
+            isHittingHead = false;
+        
+        if (isHittingHead){
+            isCrouching = true;
         }
-        else isHittingHead = false;
+        else {
+            bool isPressingCrouch = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            isCrouching = isGrounded && isPressingCrouch;
+        }
 
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching){
             rb.velocity = new Vector2(rb.velocity.x, jumpPower);
@@ -104,7 +114,7 @@ public class Movement : MonoBehaviour
             return;
         }
 
-        if (!isCrouching || !isGrounded){
+        if (!isCrouching){
             rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
             boxCollider.size = new Vector2(colliderSizeX, colliderSizeY);
             boxCollider.offset = new Vector2(colliderOffsetX, colliderOffsetY);
@@ -144,7 +154,7 @@ public class Movement : MonoBehaviour
         Vector2 realFaceBox = verticalBoxSize;
         if (isCrouching) realFaceBox = new Vector2(verticalBoxSize.x, verticalBoxSize.y * 0.7f);
 
-        if (Physics2D.BoxCast(characterPos, realFaceBox, 0, transform.right * wallDirection, horizontalCastDistance - verticalBoxSize.x + 0.1f, groundLayer)){
+        if (Physics2D.BoxCast(characterPos, realFaceBox, 0, transform.right * wallDirection, horizontalCastDistance - verticalBoxSize.x + 0.1f, wallLayer)){
             return true;
         }
         else{
@@ -171,7 +181,7 @@ public class Movement : MonoBehaviour
         if (!isFacingRight) wallDirection = -1;
         Vector2 realFaceBox = verticalBoxSize;
 
-        if (isCrouching && !isGrounded) {
+        if (isCrouching) {
             realFaceBox = new Vector2(verticalBoxSize.x, verticalBoxSize.y * 0.7f);
         }
 
