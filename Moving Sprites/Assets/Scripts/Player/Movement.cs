@@ -12,7 +12,8 @@ public class Movement : MonoBehaviour
     public float jumpPower = 10f;
     bool isGrounded = false;
     bool isCrouching = false;
-    bool isHittingWall = false;
+    public bool isHittingWall = false;
+    public bool isHittingHead = false;
 
     Rigidbody2D rb;
     BoxCollider2D boxCollider;
@@ -23,14 +24,20 @@ public class Movement : MonoBehaviour
     float colliderOffsetX;
     float colliderOffsetY;
 
-    [Header("Ground Checking")]
-    public Vector2 groundBoxSize;
-    public float groundCastDistance;
-    public LayerMask groundLayer;
-    [Header("Wall Checking")]
-    public Vector2 facingBoxSize;
-    public float faceCastDistance;
+    // [Header("Ground Checking")]
+    // public Vector2 groundBoxSize;
+    // public float groundCastDistance;
+    // [Header("Wall Checking")]
+    // public Vector2 facingBoxSize;
+    // public float faceCastDistance;
 
+    public LayerMask groundLayer;
+
+    private Vector2 horizontalBoxSize;
+    private Vector2 verticalBoxSize;
+    private float horizontalCastDistance;
+    private float verticalCastDistance;
+    private float topCastDistance;
 
     private Vector3 characterPos;
 
@@ -53,13 +60,17 @@ public class Movement : MonoBehaviour
         verticalInput = Input.GetAxis("Vertical");
         isCrouching = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
-        animator.SetBool("isCrouching", isCrouching);
-
         FlipSprite();
         isGrounded = checkGround();
-        // isHittingWall = checkHittingWall();
+        isHittingWall = checkHittingWall();
+        
+        if (isCrouching){
+            isHittingHead = checkHittingHead();
+            if (isHittingHead) isCrouching = true;
+        }
+        else isHittingHead = false;
 
-        if (Input.GetButtonDown("Jump") && isGrounded){
+        if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching){
             rb.velocity = new Vector2(rb.velocity.x, jumpPower);
             isGrounded = false;
         }
@@ -69,20 +80,29 @@ public class Movement : MonoBehaviour
         }
 
         if (!isFacingRight)
-        characterPos = new Vector3(transform.position.x + colliderOffsetX * 4f, transform.position.y, transform.position.z);
+        characterPos = new Vector3(transform.position.x + boxCollider.offset.x * 4f, transform.position.y + boxCollider.offset.y * 4f, transform.position.z);
         else
-        characterPos = new Vector3(transform.position.x - colliderOffsetX * 4f, transform.position.y, transform.position.z);
+        characterPos = new Vector3(transform.position.x - boxCollider.offset.x * 4f, transform.position.y + boxCollider.offset.y * 4f, transform.position.z);
+
+
+        horizontalBoxSize = new Vector2(boxCollider.size.x * 4f, 0.25f);
+        verticalBoxSize = new Vector2(0.25f, boxCollider.size.y * 4f);
+        horizontalCastDistance = boxCollider.size.x * 2f + 0.125f;
+        verticalCastDistance = boxCollider.size.y * 2f + 0.125f;
+        topCastDistance = colliderSizeY * 2f + 0.125f - colliderOffsetY * 2f;
+
+        animator.SetBool("isCrouching", isCrouching);
         animator.SetBool("isJumping", !isGrounded);
 
     }
 
     private void FixedUpdate() {
-        // if (isHittingWall && ((isFacingRight && horizontalInput > 0f) || (!isFacingRight && horizontalInput < 0f))){
-        //     animator.SetFloat("xVelocity", 0);
-        //     animator.SetFloat("yVelocity", 0);
-        //     rb.velocity = new Vector2(0, 0);
-        //     return;
-        // }
+        if (isHittingWall && ((isFacingRight && horizontalInput > 0f) || (!isFacingRight && horizontalInput < 0f))){
+            animator.SetFloat("xVelocity", 0);
+            animator.SetFloat("yVelocity", rb.velocity.y);
+            rb.velocity = new Vector2(0, rb.velocity.y);
+            return;
+        }
 
         if (!isCrouching || !isGrounded){
             rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
@@ -109,7 +129,7 @@ public class Movement : MonoBehaviour
     }
 
     public bool checkGround(){
-        if (Physics2D.BoxCast(characterPos, groundBoxSize, 0, -transform.up, groundCastDistance, groundLayer)){
+        if (Physics2D.BoxCast(characterPos, horizontalBoxSize, 0, -transform.up, verticalCastDistance, groundLayer)){
             return true;
         }
         else{
@@ -121,10 +141,21 @@ public class Movement : MonoBehaviour
         int wallDirection = 1;
         if (!isFacingRight) wallDirection = -1;
 
-        Vector2 realFaceBox = facingBoxSize;
-        if (isCrouching) realFaceBox = new Vector2(facingBoxSize.x, facingBoxSize.y * 0.7f);
+        Vector2 realFaceBox = verticalBoxSize;
+        if (isCrouching) realFaceBox = new Vector2(verticalBoxSize.x, verticalBoxSize.y * 0.7f);
 
-        if (Physics2D.BoxCast(transform.position, realFaceBox, 0, transform.right * wallDirection, faceCastDistance, groundLayer)){
+        if (Physics2D.BoxCast(characterPos, realFaceBox, 0, transform.right * wallDirection, horizontalCastDistance - verticalBoxSize.x + 0.1f, groundLayer)){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    public bool checkHittingHead(){
+        if (!isCrouching) return true;
+
+        if (Physics2D.BoxCast(characterPos, horizontalBoxSize, 0, transform.up, topCastDistance, groundLayer)){
             return true;
         }
         else{
@@ -133,14 +164,18 @@ public class Movement : MonoBehaviour
     }
 
     private void OnDrawGizmos() {
-        Gizmos.DrawWireCube(characterPos - transform.up * groundCastDistance, groundBoxSize);
+        Gizmos.DrawWireCube(characterPos - transform.up * verticalCastDistance, horizontalBoxSize);
+        Gizmos.DrawWireCube(characterPos + transform.up * topCastDistance, horizontalBoxSize);
+        
+        int wallDirection = 1;
+        if (!isFacingRight) wallDirection = -1;
+        Vector2 realFaceBox = verticalBoxSize;
 
-        // int wallDirection = 1;
-        // if (!isFacingRight) wallDirection = -1;
-        // Vector2 realFaceBox = facingBoxSize;
-        // if (isCrouching) realFaceBox = new Vector2(facingBoxSize.x, facingBoxSize.y * 0.7f);
+        if (isCrouching && !isGrounded) {
+            realFaceBox = new Vector2(verticalBoxSize.x, verticalBoxSize.y * 0.7f);
+        }
 
-        // Gizmos.DrawWireCube(transform.position + wallDirection * transform.right * faceCastDistance, realFaceBox);
+        Gizmos.DrawWireCube(characterPos + wallDirection * transform.right * (horizontalCastDistance - verticalBoxSize.x + 0.1f), realFaceBox);
     }
 
     // private void OnTriggerEnter2D(Collider2D other) {
