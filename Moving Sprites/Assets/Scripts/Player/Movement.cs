@@ -12,8 +12,9 @@ public class Movement : MonoBehaviour
     public float jumpPower = 10f;
     bool isGrounded = false;
     bool isCrouching = false;
-    public bool isHittingWall = false;
-    public bool isHittingHead = false;
+    bool isHittingWall = false;
+    bool isHittingHead = false;
+    bool isRunning = false;
 
     Rigidbody2D rb;
     BoxCollider2D boxCollider;
@@ -80,6 +81,10 @@ public class Movement : MonoBehaviour
             isCrouching = isGrounded && isPressingCrouch;
         }
 
+        if (!isCrouching && isGrounded){
+            isRunning = (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && (horizontalInput != 0f);
+        } else isRunning = false;
+
         if (Input.GetButtonDown("Jump") && isGrounded && !isCrouching){
             rb.velocity = new Vector2(rb.velocity.x, jumpPower);
             isGrounded = false;
@@ -103,7 +108,7 @@ public class Movement : MonoBehaviour
 
         animator.SetBool("isCrouching", isCrouching);
         animator.SetBool("isJumping", !isGrounded);
-
+        animator.SetBool("isRunning", isRunning);
     }
 
     private void FixedUpdate() {
@@ -114,15 +119,19 @@ public class Movement : MonoBehaviour
             return;
         }
 
-        if (!isCrouching){
-            rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
-            boxCollider.size = new Vector2(colliderSizeX, colliderSizeY);
-            boxCollider.offset = new Vector2(colliderOffsetX, colliderOffsetY);
-        }
-        else{
+        if (isCrouching){
             rb.velocity = new Vector2(horizontalInput * 0.4f * moveSpeed, rb.velocity.y);
             boxCollider.size = new Vector2(colliderSizeX, colliderSizeY * 0.7f);
             boxCollider.offset = new Vector2(colliderOffsetX, colliderOffsetY - colliderSizeY * 0.15f);
+        }
+        else {
+            if (isRunning){
+                rb.velocity = new Vector2(horizontalInput * moveSpeed * 1.6f, rb.velocity.y);
+            }
+            else 
+                rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
+            boxCollider.size = new Vector2(colliderSizeX, colliderSizeY);
+            boxCollider.offset = new Vector2(colliderOffsetX, colliderOffsetY);
         }
         
         animator.SetFloat("xVelocity", Math.Abs(rb.velocity.x));
