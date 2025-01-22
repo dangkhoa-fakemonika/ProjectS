@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-public class Movement : MonoBehaviour
+public class PlayerMovement : MonoBehaviour
 {
+    [Header ("Attributes")]
     float horizontalInput;
     float verticalInput;
     public float moveSpeed = 6f;
-    bool isFacingRight = false;
+    public bool isFacingRight {get; private set;}
     public float jumpPower = 10f;
     bool isGrounded = false;
     bool isCrouching = false;
@@ -45,10 +46,13 @@ public class Movement : MonoBehaviour
 
     private Vector3 characterPos;
 
+    public int soulMode;
+
     // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        isFacingRight = false;
         animator = GetComponent<Animator>();
         boxCollider = GetComponent<BoxCollider2D>();
         colliderSizeX = boxCollider.size.x;
@@ -61,11 +65,10 @@ public class Movement : MonoBehaviour
     void Update()
     {
         horizontalInput = Input.GetAxis("Horizontal");
-        // horizontalInput = (float) Math.Sign(horizontalInput) * Math.Max(Math.Abs(horizontalInput), 1f);
-
         verticalInput = Input.GetAxis("Vertical");
 
         FlipSprite();
+
         isGrounded = checkGround();
         isHittingWall = checkHittingWall();
         if (isCrouching)
@@ -93,6 +96,15 @@ public class Movement : MonoBehaviour
         if (transform.position.y < -15){
             transform.position = new Vector3(5f, 10f, transform.position.z);
         }
+
+        if (Input.GetKeyDown(KeyCode.Z))
+            soulMode = 0;
+        if (Input.GetKeyDown(KeyCode.X))
+            soulMode = 1;
+        if (Input.GetKeyDown(KeyCode.C))
+            soulMode = 2;
+        
+
 
         if (!isFacingRight)
         characterPos = new Vector3(transform.position.x + boxCollider.offset.x * 4f, transform.position.y + boxCollider.offset.y * 4f, transform.position.z);
